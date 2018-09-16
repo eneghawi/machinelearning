@@ -1,0 +1,50 @@
+#!/bin/bash
+
+start=$(date +%s.%N)
+
+until ! sudo lsof /var/lib/dpkg/lock; do
+        echo "Waiting for another install to finish"
+	sleep 5
+done
+echo "Starting Now Installation Process"
+echo "Checking for CUDA and installing."
+# Check for CUDA and try to install.
+if ! dpkg-query -W cuda-9-0; then
+  # The 16.04 installer works with 16.10.
+ sudo curl -O http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
+ sudo dpkg -i ./cuda-repo-ubuntu1604_9.0.176-1_amd64.deb
+ sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
+ sudo apt-get update
+ sudo apt-get install cuda-9-0 -y
+fi
+# Enable persistence mode
+nvidia-smi -pm 1
+sudo apt install virtualenv -y
+cd /tmp/
+gsutil cp gs://nvidiadrivers/cudnn-9.0-linux-x64-v7.2.1.38.tgz /tmp/
+tar -xvf cudnn-9.0-linux-x64-v7.2.1.38.tgz 
+sudo cp -P cuda/lib64/libcudnn* /usr/local/cuda-9.0/lib64/
+sudo cp  cuda/include/cudnn.h /usr/local/cuda-9.0/include/
+sudo chmod a+r /usr/local/cuda-9.0/include/cudnn.h  /usr/local/cuda/lib64/libcudnn*
+sudo apt-get install libcupti-dev -y
+export PATH=/usr/local/cuda-9.0/bin${PATH:+:${PATH}}
+export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}
+echo "export PATH=/usr/local/cuda-9.0/bin${PATH:+:${PATH}}" >> ~/.bashrc
+echo "export LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" >> ~/.bashrc
+echo "Installing Virtual Enviornment MachineLearning"
+cd
+virtualenv --system-site-package -p python3 MachineLearning
+source MachineLearning/bin/activate
+pip3 install -U tensorflow-gpu
+mkdir ~/MachineLearning/code
+cd ~/MachineLearning/code
+git clone https://github.com/tensorflow/tensorflow.git
+git clone https://github.com/geosada/PI.git
+cd ~/
+rm -rf ~/vim/
+end=$(date +%s.%N)
+runtime=$(python -c "print(${end} - ${start})")
+
+echo "Runtime was $runtime"
+
+
